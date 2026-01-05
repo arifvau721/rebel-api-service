@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>🔥 Rebel API Dashboard</title>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      padding: 20px;
+    }
+    h1 { color: #38bdf8; }
+    section {
+      background: #020617;
+      padding: 15px;
+      margin-bottom: 25px;
+      border-radius: 10px;
+    }
+    input, button {
+      padding: 8px;
+      margin: 6px 0;
+      width: 100%;
+      max-width: 420px;
+    }
+    button {
+      background: #38bdf8;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .box {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    img, video, audio {
+      margin-top: 10px;
+      max-width: 100%;
+      border-radius: 6px;
+    }
+    .label {
+      color: #38bdf8;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🔥 Rebel API Dashboard</h1>
+
+<!-- AI ASK -->
+<section>
+  <h2>🤖 AI Ask</h2>
+  <input id="ai_q" placeholder="Ask AI something" />
+  <button onclick="callAPI(
+    `/api/ai/ask?q=${encodeURIComponent(ai_q.value)}`,
+    'AI Ask'
+  )">Ask</button>
+
+  <div class="box">
+    <div class="label">📦 JSON Response</div>
+    <pre id="json_out"></pre>
+  </div>
+
+  <div class="box">
+    <div class="label">📘 How to use</div>
+    <pre id="usage_out"></pre>
+  </div>
+
+  <div class="box">
+    <div class="label">🖼 Preview</div>
+    <div id="preview_out"></div>
+  </div>
+</section>
+
+<!-- MEDIA -->
+<section>
+  <h2>🎬 Media Downloader</h2>
+  <input id="media_url" placeholder="Media URL (YT / TikTok / FB / IG)" />
+  <input id="media_platform" placeholder="platform (optional)" />
+  <button onclick="callAPI(
+    `/api/media?url=${encodeURIComponent(media_url.value)}&platform=${media_platform.value}`,
+    'Media Downloader'
+  )">Fetch</button>
+
+  <div class="box">
+    <div class="label">📦 JSON Response</div>
+    <pre id="json_out2"></pre>
+  </div>
+
+  <div class="box">
+    <div class="label">📘 How to use</div>
+    <pre id="usage_out2"></pre>
+  </div>
+
+  <div class="box">
+    <div class="label">🎥 Preview</div>
+    <div id="preview_out2"></div>
+  </div>
+</section>
+
+<script>
+async function callAPI(url, title) {
+  const res = await fetch(url);
+  const data = await res.json();
+
+  // JSON
+  document.getElementById("json_out").innerText =
+  document.getElementById("json_out2").innerText =
+    JSON.stringify(data, null, 2);
+
+  // Usage
+  const fullUrl = location.origin + url;
+  document.getElementById("usage_out").innerText =
+  document.getElementById("usage_out2").innerText =
+    `GET ${fullUrl}`;
+
+  // Preview
+  renderPreview(data);
+}
+
+function renderPreview(data) {
+  const preview =
+    document.getElementById("preview_out") ||
+    document.getElementById("preview_out2");
+
+  preview.innerHTML = "";
+
+  if (!data) return;
+
+  const r = data.result || data.data || data;
+
+  // Video
+  if (r.video || r.play || r.url?.endsWith(".mp4")) {
+    const v = document.createElement("video");
+    v.src = r.video || r.play || r.url;
+    v.controls = true;
+    preview.appendChild(v);
+  }
+
+  // Audio
+  else if (r.audio || r.music) {
+    const a = document.createElement("audio");
+    a.src = r.audio || r.music;
+    a.controls = true;
+    preview.appendChild(a);
+  }
+
+  // Image
+  else if (r.thumbnail || r.image || r.poster) {
+    const img = document.createElement("img");
+    img.src = r.thumbnail || r.image || r.poster;
+    preview.appendChild(img);
+  }
+
+  else {
+    preview.innerText = "No preview available";
+  }
+}
+</script>
+
+</body>
+</html>
