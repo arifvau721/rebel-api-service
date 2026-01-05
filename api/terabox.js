@@ -13,6 +13,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    // ১. শর্ট লিঙ্ক থেকে ID বের করা
     let shortKey = "";
     if (url.includes("/s/")) {
       shortKey = url.split("/s/")[1];
@@ -20,41 +21,30 @@ export default async function handler(req, res) {
       shortKey = url.split("/").pop(); 
     }
 
-    // 👇 নতুন কনফিগারেশন: আমরা মোবাইল ইউজার সেজে রিকোয়েস্ট পাঠাবো
-    const apiUrl = `https://www.terabox.com/api/shorturlinfo?app_id=250528&shorturl=${shortKey}&root=1`;
+    // ২. ⚠️ নতুন কৌশল: 'shorturlinfo' এর বদলে 'share/list' ব্যবহার করা
+    // এটি সাধারণত কম ব্লক খায়
+    const apiUrl = `https://www.terabox.com/share/list?app_id=250528&shorturl=${shortKey}&root=1`;
 
     const response = await axios.get(apiUrl, {
       headers: {
-        // ১. User-Agent পরিবর্তন করে লেটেস্ট ক্রোম ব্রাউজার দেওয়া হলো
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        
-        // ২. কুকি বসানো
-        "Cookie": `ndus=${COOKIE}; browserid=built-in-browser;`, 
-        
-        // ৩. এক্সট্রা হেডার্স যা বট ডিটেকশন এড়াতে সাহায্য করে
+        // ৩. নিজেকে মোবাইল অ্যাপ হিসেবে পরিচয় দেওয়া
+        "User-Agent": "TeraBox/1.32.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+        "Cookie": `ndus=${COOKIE};`,
         "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.terabox.com/sharing/link?surl=" + shortKey,
-        "Origin": "https://www.terabox.com",
-        "Host": "www.terabox.com",
-        "Connection": "keep-alive",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin"
+        "Referer": "https://www.terabox.com/wap/share/filelist", // মোবাইল সাইট রেফারার
+        "Host": "www.terabox.com"
       }
     });
 
     const data = response.data;
 
-    // ডিবাগিং: কনসোলে পুরো ডাটা দেখুন যদি আবার এরর আসে
-    // console.log("TeraBox Response:", JSON.stringify(data, null, 2));
-
+    // ৪. রেসপন্স চেক করা
+    // share/list এর ক্ষেত্রে errno 0 হলে সফল
     if (data.errno !== 0) {
-      // যদি এখনো verify_v2 চায়, তার মানে এই কুকি দিয়ে সার্ভার থেকে আর কাজ হবে না
-      return res.status(400).json({
+      return res.status(403).json({
         success: false,
-        error: "Failed. TeraBox blocked the request (Anti-Bot Triggered).",
-        terabox_msg: data.errmsg, // আসল এরর মেসেজ
+        error: "Still blocked or Invalid Link. Server IP might be blacklisted.",
+        terabox_msg: data.errmsg || "Unknown Error",
         developer: DEVELOPER_NAME
       });
     }
@@ -66,6 +56,7 @@ export default async function handler(req, res) {
 
     const file = fileList[0];
 
+    // ৫. সাকসেস রেসপন্স
     res.json({
       success: true,
       platform: "terabox",
