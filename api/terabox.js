@@ -1,7 +1,6 @@
 import axios from "axios";
 
 // 🛠️ কনফিগারেশন
-const COOKIE = process.env.TERABOX_COOKIE || "YuOVc6pteHuiMOGNcyu4WTrVXbpo43QrV92C8u8x"; 
 const DEVELOPER_NAME = "Md Aiful Islam Asif";
 const FACEBOOK_LINK = "https://facebook.com/your_id";
 
@@ -9,71 +8,74 @@ export default async function handler(req, res) {
   const { url } = req.query;
 
   if (!url) {
-    return res.status(400).json({ error: "Missing url", developer: DEVELOPER_NAME });
+    return res.status(400).json({ 
+      success: false, 
+      error: "Missing url", 
+      developer: DEVELOPER_NAME 
+    });
   }
 
   try {
-    // ১. শর্ট লিঙ্ক থেকে ID বের করা
+    // ১. শর্ট লিঙ্ক আইডি বের করা
     let shortKey = "";
     if (url.includes("/s/")) {
       shortKey = url.split("/s/")[1];
     } else {
-      shortKey = url.split("/").pop(); 
+      shortKey = url.split("/").pop();
     }
 
-    // ২. ⚠️ নতুন কৌশল: 'shorturlinfo' এর বদলে 'share/list' ব্যবহার করা
-    // এটি সাধারণত কম ব্লক খায়
-    const apiUrl = `https://www.terabox.com/share/list?app_id=250528&shorturl=${shortKey}&root=1`;
+    // ২. রিলে সার্ভার ব্যবহার করা (কারণ আপনার IP ব্লকড)
+    // আমরা একটি পাবলিক ক্লাউডফ্লেয়ার ওয়ার্কার ব্যবহার করছি যা ব্লক বাইপাস করতে পারে
+    const relayApiUrl = `https://terabox-dl.qtcloud.workers.dev/api/get-info?shorturl=${shortKey}&pwd=`;
 
-    const response = await axios.get(apiUrl, {
+    const response = await axios.get(relayApiUrl, {
       headers: {
-        // ৩. নিজেকে মোবাইল অ্যাপ হিসেবে পরিচয় দেওয়া
-        "User-Agent": "TeraBox/1.32.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
-        "Cookie": `ndus=${COOKIE};`,
-        "Accept": "application/json, text/plain, */*",
-        "Referer": "https://www.terabox.com/wap/share/filelist", // মোবাইল সাইট রেফারার
-        "Host": "www.terabox.com"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       }
     });
 
     const data = response.data;
 
-    // ৪. রেসপন্স চেক করা
-    // share/list এর ক্ষেত্রে errno 0 হলে সফল
-    if (data.errno !== 0) {
-      return res.status(403).json({
+    // ৩. রিলে সার্ভারের এরর চেক করা
+    if (!data.success && !data.list) {
+      return res.status(500).json({
         success: false,
-        error: "Still blocked or Invalid Link. Server IP might be blacklisted.",
-        terabox_msg: data.errmsg || "Unknown Error",
+        error: "Failed to fetch data via Relay. Link might be dead.",
         developer: DEVELOPER_NAME
       });
     }
 
-    const fileList = data.list;
-    if (!fileList || fileList.length === 0) {
-      return res.status(404).json({ success: false, error: "No file found", developer: DEVELOPER_NAME });
+    // ৪. ডেটা প্রসেস করা
+    // পাবলিক API থেকে আসা ডেটা আপনার ফরম্যাটে সাজানো
+    const file = data.list ? data.list[0] : null;
+
+    if (!file) {
+      return res.status(404).json({ 
+        success: false, 
+        error: "No file found", 
+        developer: DEVELOPER_NAME 
+      });
     }
 
-    const file = fileList[0];
-
-    // ৫. সাকসেস রেসপন্স
+    // ৫. সফল রেসপন্স
     res.json({
       success: true,
       platform: "terabox",
       developer: DEVELOPER_NAME,
       facebook: FACEBOOK_LINK,
       original_url: url,
-      title: file.server_filename,
-      size: file.size, 
-      thumbnail: file.thumbs ? file.thumbs.url3 : null,
-      download: file.dlink 
+      title: file.filename || file.server_filename,
+      size: file.size,
+      thumbnail: file.thumb || (file.thumbs ? file.thumbs.url3 : null),
+      // downloadLink সরাসরি নাও থাকতে পারে, তাই dlink বা direct_link খোঁজা হচ্ছে
+      download: file.dlink || file.downloadLink || "Link expired or protected"
     });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({
       success: false,
-      error: "Server Error",
+      error: "Relay Server Error",
       developer: DEVELOPER_NAME,
       details: err.message
     });
