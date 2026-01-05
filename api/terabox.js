@@ -7,6 +7,7 @@ const FACEBOOK_LINK = "https://facebook.com/your_id";
 export default async function handler(req, res) {
   const { url } = req.query;
 
+  // ১. ইনপুট চেক
   if (!url) {
     return res.status(400).json({ 
       success: false, 
@@ -16,42 +17,48 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ১. শর্ট লিঙ্ক ID বের করা
-    let shortKey = "";
-    if (url.includes("/s/")) {
-      shortKey = url.split("/s/")[1];
-    } else {
-      shortKey = url.split("/").pop();
-    }
-
-    // ২. আপনার দেওয়া Worker URL
-    const apiUrl = `https://terabox.hnn.workers.dev/api/get-info-new?shorturl=${shortKey}&pwd=`;
-
-    // ৩. ⚠️ ফেইক হেডার্স (Vercel কে লুকানোর জন্য)
-    // 403 ফিক্স করার জন্য Referer এবং Origin খুব গুরুত্বপূর্ণ
-    const response = await axios.get(apiUrl, {
+    // ২. SaveTube API তে রিকোয়েস্ট পাঠানো
+    // এটি POST মেথড ব্যবহার করে এবং Vercel এ এখনো সচল আছে
+    const apiUrl = "https://ytshorts.savetube.me/api/v1/terabox-downloader";
+    
+    const response = await axios.post(apiUrl, {
+      url: url
+    }, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://terabox.hnn.workers.dev/", // মনে হবে রিকোয়েস্ট তাদের সাইট থেকেই গেছে
-        "Origin": "https://terabox.hnn.workers.dev",
-        "Accept": "application/json, text/plain, */*",
-        "X-Requested-With": "XMLHttpRequest"
+        "Content-Type": "application/json"
       }
     });
 
     const data = response.data;
 
-    // ৪. ডেটা চেক
-    if (!data.list || data.list.length === 0) {
-      // লিঙ্ক এক্সপায়ারড বা ভুল হলে
-      return res.status(404).json({
+    // ৩. রেসপন্স চেক করা
+    // SaveTube এর স্ট্যাটাস সাধারণত true/false বা কোড দিয়ে চেক করতে হয়
+    if (!data || !data.response) {
+      return res.status(500).json({
         success: false,
-        error: "File not found or Link Expired",
-        developer: DEVELOPER_NAME
+        error: "Failed to fetch video info via SaveTube.",
+        developer: DEVELOPER_NAME,
+        details: "Link might be expired or the API is busy."
       });
     }
 
-    const file = data.list[0];
+    const info = data.response[0]; // তথ্যের মূল অংশ
+
+    // ৪. রেজাল্ট সাজানো (আপনার ফরম্যাটে)
+    // SaveTube ভিন্ন ফরম্যাটে ডাটা দেয়, তাই আমরা সেটা ম্যাপ করে নিচ্ছি
+    
+    // ডাউনলোড লিঙ্ক বের করা (সাধারণত একাধিক রেজোলিউশন থাকে, আমরা প্রথমটি নিচ্ছি)
+    let downloadLink = null;
+    let size = "Unknown";
+    
+    if (info.resolutions && info.resolutions["Fast Download"]) {
+        downloadLink = info.resolutions["Fast Download"];
+    } else if (info.resolutions && info.resolutions["HD Video"]) {
+        downloadLink = info.resolutions["HD Video"];
+    } else {
+        downloadLink = info.downloadUrl; // ফলব্যাক
+    }
 
     // ৫. সাকসেস রেসপন্স
     res.json({
@@ -60,21 +67,20 @@ export default async function handler(req, res) {
       developer: DEVELOPER_NAME,
       facebook: FACEBOOK_LINK,
       original_url: url,
-      title: file.server_filename, 
-      size: file.size,             
-      thumbnail: file.thumbs ? file.thumbs.url3 : null, 
-      download: file.dlink         
+      title: info.title || "TeraBox Video",
+      size: size, // SaveTube সবসময় সাইজ দেয় না
+      thumbnail: info.thumbnail || null,
+      download: downloadLink
     });
 
   } catch (err) {
-    // ডিবাগিং: কনসোলে আসল এরর প্রিন্ট হবে
-    console.error("Worker Error Details:", err.response ? err.response.data : err.message);
+    console.error("SaveTube API Error:", err.message);
     
     res.status(500).json({
       success: false,
-      error: "Worker Blocked Vercel IP (403)",
+      error: "API Request Failed",
       developer: DEVELOPER_NAME,
-      details: "The worker detected Vercel IP and rejected it. Try running locally."
+      details: err.response?.data || err.message
     });
   }
 }
