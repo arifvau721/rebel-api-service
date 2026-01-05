@@ -1,20 +1,13 @@
 import axios from "axios";
 
 export default async function handler(req, res) {
-  const {
-    yt,
-    youtube,
-    insta,
-    instagram,
-    tiktok,
-    fb,
-    facebook,
-    pinterest,
-    capcut
-  } = req.query;
+  const { yt, youtube, insta, instagram, tiktok, fb, facebook } = req.query;
 
-  let url, platform, endpoint;
+  let url = null;
+  let platform = null;
+  let endpoint = null;
 
+  // 🔍 Detect platform
   if (yt || youtube) {
     url = yt || youtube;
     platform = "youtube";
@@ -31,14 +24,6 @@ export default async function handler(req, res) {
     url = fb || facebook;
     platform = "facebook";
     endpoint = "fbdown2";
-  } else if (pinterest) {
-    url = pinterest;
-    platform = "pinterest";
-    endpoint = "pintarest"; // nayan API spelling
-  } else if (capcut) {
-    url = capcut;
-    platform = "capcut";
-    endpoint = "capcut";
   } else {
     return res.status(400).json({
       success: false,
@@ -47,14 +32,24 @@ export default async function handler(req, res) {
         youtube: "/api/downloader?yt=URL",
         instagram: "/api/downloader?insta=URL",
         tiktok: "/api/downloader?tiktok=URL",
-        facebook: "/api/downloader?fb=URL",
-        pinterest: "/api/downloader?pinterest=URL",
-        capcut: "/api/downloader?capcut=URL"
+        facebook: "/api/downloader?fb=URL"
       }
     });
   }
 
+  // 🚫 Facebook temporarily disabled (API key issue)
+  if (platform === "facebook") {
+    return res.json({
+      success: false,
+      platform,
+      error: "Facebook download temporarily unavailable",
+      reason: "External API now requires private key",
+      suggestion: "Use browser-based downloader"
+    });
+  }
+
   try {
+    // 🌐 External API call
     const { data } = await axios.get(
       `https://nayan-video-downloader.vercel.app/${endpoint}`,
       { params: { url } }
