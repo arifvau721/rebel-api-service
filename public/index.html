@@ -61,109 +61,115 @@
 <section>
   <h2>🤖 AI Ask</h2>
   <input id="ai_q" placeholder="Ask AI something" />
-  <button onclick="callAPI(
-    `/api/ai/ask?q=${encodeURIComponent(ai_q.value)}`,
-    'AI Ask'
-  )">Ask</button>
+  <button onclick="callAI()">Ask</button>
 
   <div class="box">
     <div class="label">📦 JSON Response</div>
-    <pre id="json_out"></pre>
+    <pre id="ai_json"></pre>
   </div>
 
   <div class="box">
     <div class="label">📘 How to use</div>
-    <pre id="usage_out"></pre>
+    <pre id="ai_usage"></pre>
   </div>
 
   <div class="box">
     <div class="label">🖼 Preview</div>
-    <div id="preview_out"></div>
+    <div id="ai_preview">Text only response</div>
   </div>
 </section>
 
-<!-- MEDIA -->
+<!-- DOWNLOADER -->
 <section>
   <h2>🎬 Media Downloader</h2>
-  <input id="media_url" placeholder="Media URL (YT / TikTok / FB / IG)" />
-  <input id="media_platform" placeholder="platform (optional)" />
-  <button onclick="callAPI(
-    `/api/media?url=${encodeURIComponent(media_url.value)}&platform=${media_platform.value}`,
-    'Media Downloader'
-  )">Fetch</button>
+  <input id="media_url" placeholder="Media URL" />
+  <input id="media_type" placeholder="yt / insta / tiktok / fb / pinterest / capcut" />
+  <button onclick="callDownloader()">Download</button>
 
   <div class="box">
     <div class="label">📦 JSON Response</div>
-    <pre id="json_out2"></pre>
+    <pre id="dl_json"></pre>
   </div>
 
   <div class="box">
     <div class="label">📘 How to use</div>
-    <pre id="usage_out2"></pre>
+    <pre id="dl_usage"></pre>
   </div>
 
   <div class="box">
     <div class="label">🎥 Preview</div>
-    <div id="preview_out2"></div>
+    <div id="dl_preview"></div>
   </div>
 </section>
 
 <script>
-async function callAPI(url, title) {
+async function callAI() {
+  const q = ai_q.value;
+  const url = `/api/ai/ask?q=${encodeURIComponent(q)}`;
+
   const res = await fetch(url);
   const data = await res.json();
 
-  // JSON
-  document.getElementById("json_out").innerText =
-  document.getElementById("json_out2").innerText =
-    JSON.stringify(data, null, 2);
+  ai_json.innerText = JSON.stringify(data, null, 2);
+  ai_usage.innerText = `GET ${location.origin}${url}`;
+  ai_preview.innerText = data.reply || "No preview";
+}
 
-  // Usage
-  const fullUrl = location.origin + url;
-  document.getElementById("usage_out").innerText =
-  document.getElementById("usage_out2").innerText =
-    `GET ${fullUrl}`;
+async function callDownloader() {
+  const urlInput = media_url.value;
+  const type = media_type.value.trim();
 
-  // Preview
+  if (!type) {
+    alert("Enter platform type (yt / insta / tiktok / fb etc)");
+    return;
+  }
+
+  const apiUrl = `/api/downloader?${type}=${encodeURIComponent(urlInput)}`;
+  const res = await fetch(apiUrl);
+  const data = await res.json();
+
+  dl_json.innerText = JSON.stringify(data, null, 2);
+  dl_usage.innerText = `GET ${location.origin}${apiUrl}`;
+
   renderPreview(data);
 }
 
 function renderPreview(data) {
-  const preview =
-    document.getElementById("preview_out") ||
-    document.getElementById("preview_out2");
+  const box = document.getElementById("dl_preview");
+  box.innerHTML = "";
 
-  preview.innerHTML = "";
+  if (!data || !data.result) {
+    box.innerText = "No preview available";
+    return;
+  }
 
-  if (!data) return;
+  const r = data.result;
 
-  const r = data.result || data.data || data;
-
-  // Video
+  // 🎥 Video
   if (r.video || r.play || r.url?.endsWith(".mp4")) {
     const v = document.createElement("video");
     v.src = r.video || r.play || r.url;
     v.controls = true;
-    preview.appendChild(v);
+    box.appendChild(v);
   }
 
-  // Audio
+  // 🔊 Audio
   else if (r.audio || r.music) {
     const a = document.createElement("audio");
     a.src = r.audio || r.music;
     a.controls = true;
-    preview.appendChild(a);
+    box.appendChild(a);
   }
 
-  // Image
+  // 🖼 Image
   else if (r.thumbnail || r.image || r.poster) {
     const img = document.createElement("img");
     img.src = r.thumbnail || r.image || r.poster;
-    preview.appendChild(img);
+    box.appendChild(img);
   }
 
   else {
-    preview.innerText = "No preview available";
+    box.innerText = "No preview supported";
   }
 }
 </script>
