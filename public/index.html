@@ -1,176 +1,88 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🔥 Rebel API Dashboard</title>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
+  <title>🔥 Rebel Terabox Dashboard</title>
+
   <style>
     body {
-      font-family: Arial, sans-serif;
       background: #0f172a;
       color: #e5e7eb;
+      font-family: Arial, sans-serif;
       padding: 20px;
     }
+
     h1 { color: #38bdf8; }
-    section {
+
+    .card {
       background: #020617;
-      padding: 15px;
-      margin-bottom: 25px;
-      border-radius: 10px;
+      padding: 20px;
+      max-width: 500px;
+      border-radius: 12px;
+      border: 1px solid #1e293b;
     }
-    input, button {
-      padding: 8px;
-      margin: 6px 0;
+
+    input, select, button {
       width: 100%;
-      max-width: 420px;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: none;
     }
+
     button {
       background: #38bdf8;
-      border: none;
       font-weight: bold;
       cursor: pointer;
     }
-    .box {
+
+    .info {
       background: #020617;
-      border: 1px solid #1e293b;
-      border-radius: 6px;
+      border: 1px dashed #334155;
+      margin-top: 15px;
       padding: 10px;
-      margin-top: 10px;
-    }
-    pre {
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-    img, video, audio {
-      margin-top: 10px;
-      max-width: 100%;
       border-radius: 6px;
-    }
-    .label {
-      color: #38bdf8;
-      font-weight: bold;
-      margin-bottom: 5px;
+      font-size: 14px;
     }
   </style>
 </head>
 
 <body>
 
-<h1>🔥 Rebel API Dashboard</h1>
+<h1>🔥 Rebel Terabox Downloader</h1>
 
-<!-- AI ASK -->
-<section>
-  <h2>🤖 AI Ask</h2>
-  <input id="ai_q" placeholder="Ask AI something" />
-  <button onclick="callAI()">Ask</button>
+<div class="card">
+  <label>📎 Terabox Link</label>
+  <input id="link" placeholder="Paste Terabox link here">
 
-  <div class="box">
-    <div class="label">📦 JSON Response</div>
-    <pre id="ai_json"></pre>
+  <label>⚙ Provider</label>
+  <select id="provider">
+    <option value="fast">TeraboxFast (default)</option>
+    <option value="1024">1024 Downloader</option>
+  </select>
+
+  <button onclick="openDownloader()">🚀 Open Downloader</button>
+
+  <div class="info" id="info">
+    ℹ This tool opens a downloader page in a new tab.<br>
+    ℹ No file is downloaded on the server.
   </div>
-
-  <div class="box">
-    <div class="label">📘 How to use</div>
-    <pre id="ai_usage"></pre>
-  </div>
-
-  <div class="box">
-    <div class="label">🖼 Preview</div>
-    <div id="ai_preview">Text only response</div>
-  </div>
-</section>
-
-<!-- DOWNLOADER -->
-<section>
-  <h2>🎬 Media Downloader</h2>
-  <input id="media_url" placeholder="Media URL" />
-  <input id="media_type" placeholder="yt / insta / tiktok / fb / pinterest / capcut" />
-  <button onclick="callDownloader()">Download</button>
-
-  <div class="box">
-    <div class="label">📦 JSON Response</div>
-    <pre id="dl_json"></pre>
-  </div>
-
-  <div class="box">
-    <div class="label">📘 How to use</div>
-    <pre id="dl_usage"></pre>
-  </div>
-
-  <div class="box">
-    <div class="label">🎥 Preview</div>
-    <div id="dl_preview"></div>
-  </div>
-</section>
+</div>
 
 <script>
-async function callAI() {
-  const q = ai_q.value;
-  const url = `/api/ai/ask?q=${encodeURIComponent(q)}`;
+function openDownloader() {
+  const url = document.getElementById("link").value.trim();
+  const provider = document.getElementById("provider").value;
 
-  const res = await fetch(url);
-  const data = await res.json();
-
-  ai_json.innerText = JSON.stringify(data, null, 2);
-  ai_usage.innerText = `GET ${location.origin}${url}`;
-  ai_preview.innerText = data.reply || "No preview";
-}
-
-async function callDownloader() {
-  const urlInput = media_url.value;
-  const type = media_type.value.trim();
-
-  if (!type) {
-    alert("Enter platform type (yt / insta / tiktok / fb etc)");
+  if (!url) {
+    alert("Paste a Terabox link first");
     return;
   }
 
-  const apiUrl = `/api/downloader?${type}=${encodeURIComponent(urlInput)}`;
-  const res = await fetch(apiUrl);
-  const data = await res.json();
+  const apiUrl =
+    `/api/terabox?url=${encodeURIComponent(url)}&provider=${provider}`;
 
-  dl_json.innerText = JSON.stringify(data, null, 2);
-  dl_usage.innerText = `GET ${location.origin}${apiUrl}`;
-
-  renderPreview(data);
-}
-
-function renderPreview(data) {
-  const box = document.getElementById("dl_preview");
-  box.innerHTML = "";
-
-  if (!data || !data.result) {
-    box.innerText = "No preview available";
-    return;
-  }
-
-  const r = data.result;
-
-  // 🎥 Video
-  if (r.video || r.play || r.url?.endsWith(".mp4")) {
-    const v = document.createElement("video");
-    v.src = r.video || r.play || r.url;
-    v.controls = true;
-    box.appendChild(v);
-  }
-
-  // 🔊 Audio
-  else if (r.audio || r.music) {
-    const a = document.createElement("audio");
-    a.src = r.audio || r.music;
-    a.controls = true;
-    box.appendChild(a);
-  }
-
-  // 🖼 Image
-  else if (r.thumbnail || r.image || r.poster) {
-    const img = document.createElement("img");
-    img.src = r.thumbnail || r.image || r.poster;
-    box.appendChild(img);
-  }
-
-  else {
-    box.innerText = "No preview supported";
-  }
+  window.open(apiUrl, "_blank");
 }
 </script>
 
